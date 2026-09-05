@@ -419,7 +419,8 @@ parseClassicConditionExpression(const std::string& condition) {
     std::string_view text;
     qc::ComparisonKind kind;
   };
-  static constexpr std::array<OperatorMatch, 6> OPERATORS{{
+  using OperatorsT = std::array<OperatorMatch, 6>;
+  static constexpr OperatorsT OPERATORS{{
       {.text = "<=", .kind = qc::Leq},
       {.text = ">=", .kind = qc::Geq},
       {.text = "==", .kind = qc::Eq},
@@ -428,16 +429,19 @@ parseClassicConditionExpression(const std::string& condition) {
       {.text = ">", .kind = qc::Gt},
   }};
 
-  const auto* const found =
-      std::ranges::find_if(OPERATORS, [&normalized](const auto& op) {
-        return normalized.find(op.text) != std::string::npos;
-      });
-  if (found == OPERATORS.end()) {
+  std::optional<OperatorMatch> match;
+  for (const auto& op : OPERATORS) {
+    if (normalized.find(op.text) != std::string::npos) {
+      match = op;
+      break;
+    }
+  }
+  if (!match.has_value()) {
     return std::nullopt;
   }
-  const auto opPos = normalized.find(found->text);
+  const auto opPos = normalized.find(match->text);
   const auto lhs = normalized.substr(0, opPos);
-  const auto rhs = normalized.substr(opPos + found->text.size());
+  const auto rhs = normalized.substr(opPos + match->text.size());
   if (lhs.empty() || rhs.empty()) {
     return std::nullopt;
   }
@@ -478,13 +482,13 @@ parseClassicConditionExpression(const std::string& condition) {
     return ClassicCondition{.registerName = base,
                             .bitIndex = bitIndex,
                             .expectedValue = expected,
-                            .kind = found->kind};
+                            .kind = match->kind};
   }
 
   return ClassicCondition{.registerName = lhs,
                           .bitIndex = std::nullopt,
                           .expectedValue = expected,
-                          .kind = found->kind};
+                          .kind = match->kind};
 }
 
 std::optional<ClassicCondition>
